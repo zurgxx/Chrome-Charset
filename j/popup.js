@@ -10,67 +10,109 @@ const distance = (x1, y1, x2, y2) => {
   return Math.sqrt(xDelta * xDelta + yDelta * yDelta);
 };
 
-chrome.tabs.query({ active: true, currentWindow: true }, async tabs => {
+(async () => { // Wrap in async IIFE to use await
+  const tabs = await new Promise(resolve => chrome.tabs.query({ active: true, currentWindow: true }, resolve));
   if (tabs.length === 0) {
     return;
   }
+
+  const ENCODINGS = await new Promise(resolve => chrome.runtime.sendMessage({ type: 'getEncodings' }, resolve));
+  if (!ENCODINGS || ENCODINGS.length === 0) {
+    console.error("Failed to load encodings from service worker or ENCODINGS is empty.");
+    document.getElementById('current').innerHTML = chrome.i18n.getMessage('unknown');
+    const listElement = document.getElementById('list');
+    if(listElement) listElement.innerHTML = "Error: Could not load encodings list.";
+    return;
+  }
+
   // Detect current encoding
   const currentDOM = document.getElementById('current');
   currentDOM.innerHTML = '......';
-  const fileEncoding = tabs[0].url.startsWith('file://') &&
-    await new Promise(resolve => chrome.runtime.sendMessage({ type: 'getEncoding', tabId: tabs[0].id }, resolve));
-  if (fileEncoding) {
-    const encodingInfo = ENCODINGS.find(e => e[0].toUpperCase() === fileEncoding.toUpperCase());
-    currentDOM.innerHTML = encodingInfo ? printEncodingInfo(encodingInfo) : chrome.i18n.getMessage('unknown');
-  } else {
-    chrome.tabs.executeScript(tabs[0].id, { code: 'document.charset' }, results => {
-      if (!results || !results[0]) {
+
+  const tab = tabs[0];
+  // Try to get effective encoding from service worker first (covers file:// and default encoding cases)
+  const effectiveEncodingResponse = await new Promise(resolve => chrome.runtime.sendMessage({ type: 'getEncoding', tabId: tab.id }, resolve));
+  const effectiveEncoding = effectiveEncodingResponse ? effectiveEncodingResponse.encoding : null;
+
+  if (effectiveEncoding) {
+    const encodingInfo = ENCODINGS.find(e => e.length > 1 && e[0].toUpperCase() === effectiveEncoding.toUpperCase());
+    currentDOM.innerHTML = encodingInfo ? printEncodingInfo(encodingInfo) : printEncodingInfo([effectiveEncoding, chrome.i18n.getMessage('unknown')]);
+  } else if (tab.url && !tab.url.startsWith('file://') && !tab.url.startsWith('chrome://')) {
+    try {
+      chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => document.charset,
+      }, (injectionResults) => {
+        if (chrome.runtime.lastError) {
+          console.warn('Error executing script: ' + chrome.runtime.lastError.message);
+          currentDOM.innerHTML = chrome.i18n.getMessage('unknown');
+          return;
+        }
+        // executeScript returns an array of results, one for each frame. We're interested in the main frame (index 0).
+        if (!injectionResults || injectionResults.length === 0 || !injectionResults[0].result) {
+          currentDOM.innerHTML = chrome.i18n.getMessage('unknown');
+          return;
+        }
+        const pageCharset = injectionResults[0].result;
+        const encodingInfo = ENCODINGS.find(e => e.length > 1 && e[0].toUpperCase() === String(pageCharset).toUpperCase());
+        currentDOM.innerHTML = printEncodingInfo(encodingInfo || [pageCharset, chrome.i18n.getMessage('unknown')]);
+      });
+    } catch (e) {
         currentDOM.innerHTML = chrome.i18n.getMessage('unknown');
-        return chrome.runtime.lastError;
-      }
-      const encodingInfo = ENCODINGS.find(e => e[0].toUpperCase() === String(results[0]).toUpperCase());
-      currentDOM.innerHTML = printEncodingInfo(encodingInfo || [results[0], chrome.i18n.getMessage('unknown')]);
-    });
+        console.warn('Error calling executeScript to get document.charset:', e.message);
+    }
+  } else {
+    currentDOM.innerHTML = chrome.i18n.getMessage('unknown');
   }
+
   // I18n
   document.getElementById('reset').innerHTML = chrome.i18n.getMessage('btnReset');
   document.getElementById('tip-current').innerHTML = chrome.i18n.getMessage('tipCurrent');
+
   // Setted default encoding
-  const defaultEncoding = localStorage.getItem('config_enable_default');
-  if (defaultEncoding) {
-    const encodingInfo = ENCODINGS.find(e => e[0].toUpperCase() === defaultEncoding.toUpperCase());
-    const defaultTip = document.getElementById('default-tip');
-    defaultTip.innerHTML = chrome.i18n.getMessage('defaultEncodingEnabled', [printEncodingInfo(encodingInfo)]);
-    defaultTip.title = chrome.i18n.getMessage('tipDisableDefaultEncoding');
-    defaultTip.addEventListener('click', () => chrome.runtime.openOptionsPage());
+  const storageResult = await chrome.storage.local.get('config_enable_default');
+  const defaultEncodingSetting = storageResult.config_enable_default;
+
+  if (defaultEncodingSetting) {
+    const encodingInfo = ENCODINGS.find(e => e.length > 1 && e[0].toUpperCase() === defaultEncodingSetting.toUpperCase());
+    if (encodingInfo) {
+        const defaultTip = document.getElementById('default-tip');
+        defaultTip.innerHTML = chrome.i18n.getMessage('defaultEncodingEnabled', [printEncodingInfo(encodingInfo)]);
+        defaultTip.title = chrome.i18n.getMessage('tipDisableDefaultEncoding');
+        defaultTip.addEventListener('click', () => chrome.runtime.openOptionsPage());
+    }
   }
+
   // Reset button
   document.getElementById('reset').addEventListener('click', () => {
-    chrome.runtime.sendMessage({ type: 'resetEncoding', tabId: tabs[0].id }, () => {
-      chrome.tabs.reload(tabs[0].id, { bypassCache: true }, () => window.close());
+    chrome.runtime.sendMessage({ type: 'resetEncoding', tabId: tab.id }, () => {
+      chrome.tabs.reload(tab.id, { bypassCache: true }, () => window.close());
     });
   });
+
   // Initialize encoding list
-  const list = document.getElementById('list');
-  list.addEventListener('click', e => {
+  const listElement = document.getElementById('list');
+  listElement.addEventListener('click', e => {
     if(!(e.target instanceof HTMLButtonElement && e.target.dataset.encoding)) {
       return;
     }
-    chrome.runtime.sendMessage({ type: 'setEncoding', tabId: tabs[0].id, encoding: e.target.dataset.encoding }, () => {
-      chrome.tabs.reload(tabs[0].id, { bypassCache: true }, () => window.close());
+    chrome.runtime.sendMessage({ type: 'setEncoding', tabId: tab.id, encoding: e.target.dataset.encoding }, () => {
+      chrome.tabs.reload(tab.id, { bypassCache: true }, () => window.close());
     });
   });
+
   for (const encodingInfo of ENCODINGS) {
-    if (encodingInfo.length === 1) {
-      list.appendChild(document.createElement('hr'));
+    if (encodingInfo.length === 1) { // This is for '<hr>'
+      listElement.appendChild(document.createElement('hr'));
       continue;
     }
     const button = document.createElement('button');
     button.type = 'button';
     button.dataset.encoding = encodingInfo[0];
     button.innerHTML = printEncodingInfo(encodingInfo);
-    list.appendChild(button);
+    listElement.appendChild(button);
   }
+
   // Ripple animate event
   let inks = [];
   const removeInks = () => {
@@ -118,4 +160,4 @@ chrome.tabs.query({ active: true, currentWindow: true }, async tabs => {
     inks.push(ink);
   });
   document.body.addEventListener('mouseup', removeInks);
-});
+})();

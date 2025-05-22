@@ -1,5 +1,5 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "__MSG_appName__",
   "version": "0.5.5",
   "default_locale": "en",
@@ -12,7 +12,7 @@
     "19": "i/19.png",
     "16": "i/16.png"
   },
-  "browser_action": {
+  "action": {
     "default_icon": {
       "38": "i/38.png",
       "19": "i/19.png"
@@ -21,29 +21,24 @@
     "default_popup": "popup.html"
   },
   "author": "Liming Jin, jinliming2@gmail.com",
-  "background": {
-    "scripts": [
-      "j/encoding.js",
-      "j/background.js",
-      "j/menu.js"
-    ],
-    "persistent": true
-  },
+  "service_worker": "service-worker.js",
   "homepage_url": "https://github.com/jinliming2/Chrome-Charset",
   "incognito": "split",
   "minimum_chrome_version": "55.0.2872.0",
   "offline_enabled": true,
   "options_ui": {
-    "chrome_style": false,
     "page": "option.html",
     "open_in_tab": false
   },
+  "host_permissions": [
+    "<all_urls>"
+  ],
   "permissions": [
-    "<all_urls>",
-    "webRequest",
-    "webRequestBlocking",
     "contextMenus",
-    "tabs"
+    "tabs",
+    "declarativeNetRequest",
+    "scripting",
+    "storage"
   ],
   "short_name": "__MSG_appShortName__"
 }
