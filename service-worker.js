@@ -444,19 +444,43 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   (async () => {
     switch(message.type) {
       case 'setEncoding':
+        console.log(`[SW onMessage] Received 'setEncoding'. Tab ID: ${sender.tab ? sender.tab.id : 'N/A'}, Encoding: ${message.encoding}`);
         if (sender.tab && sender.tab.id && message.encoding) {
-          await setEncoding(sender.tab.id, message.encoding);
-          sendResponse({status: "Encoding set"});
+          console.log(`[SW onMessage] Calling await setEncoding for tab ${sender.tab.id}`);
+          try {
+            await setEncoding(sender.tab.id, message.encoding);
+            console.log(`[SW onMessage] await setEncoding for tab ${sender.tab.id} completed.`);
+            sendResponse({status: "Encoding set"});
+            console.log(`[SW onMessage] sendResponse called for 'setEncoding' success for tab ${sender.tab.id}.`);
+          } catch (e) {
+            console.error(`[SW onMessage] Error during setEncoding for tab ${sender.tab.id}:`, e);
+            sendResponse({status: "Error during setEncoding", error: e.message});
+            console.log(`[SW onMessage] sendResponse called for 'setEncoding' error for tab ${sender.tab.id}.`);
+          }
         } else {
+          console.warn(`[SW onMessage] 'setEncoding' missing tabId or encoding. Tab: ${sender.tab ? sender.tab.id : 'N/A'}, Encoding: ${message.encoding}`);
           sendResponse({status: "Error: Missing tabId or encoding"});
+          console.log(`[SW onMessage] sendResponse called for 'setEncoding' missing info for tab ${sender.tab ? sender.tab.id : 'N/A'}.`);
         }
         break;
       case 'resetEncoding':
+        console.log(`[SW onMessage] Received 'resetEncoding'. Tab ID: ${sender.tab ? sender.tab.id : 'N/A'}`);
         if (sender.tab && sender.tab.id) {
-          await resetEncoding(sender.tab.id);
-          sendResponse({status: "Encoding reset"});
+          console.log(`[SW onMessage] Calling await resetEncoding for tab ${sender.tab.id}`);
+          try {
+            await resetEncoding(sender.tab.id);
+            console.log(`[SW onMessage] await resetEncoding for tab ${sender.tab.id} completed.`);
+            sendResponse({status: "Encoding reset"});
+            console.log(`[SW onMessage] sendResponse called for 'resetEncoding' success for tab ${sender.tab.id}.`);
+          } catch (e) {
+            console.error(`[SW onMessage] Error during resetEncoding for tab ${sender.tab.id}:`, e);
+            sendResponse({status: "Error during resetEncoding", error: e.message});
+            console.log(`[SW onMessage] sendResponse called for 'resetEncoding' error for tab ${sender.tab.id}.`);
+          }
         } else {
+          console.warn(`[SW onMessage] 'resetEncoding' missing tabId. Tab: ${sender.tab ? sender.tab.id : 'N/A'}`);
           sendResponse({status: "Error: Missing tabId"});
+          console.log(`[SW onMessage] sendResponse called for 'resetEncoding' missing info for tab ${sender.tab ? sender.tab.id : 'N/A'}.`);
         }
         break;
       case 'getEncoding':
