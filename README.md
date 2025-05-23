@@ -1,3 +1,13 @@
+## Notice
+
+This is a fork of [jinliming2/Chrome-Charset](https://github.com/jinliming2/Chrome-Charset), updated to support Manifest V3.
+
+The original extension stopped working due to the deprecation of Manifest V2. This fork includes major refactoring and updates for compatibility with modern Chrome versions.
+
+⚠️ Please note that this is an unofficial fork and is not maintained by the original author.
+
+Tested for personal use. While it works in my environment, it has not been fully tested — please use at your own risk.
+
 # Chrome-Charset
 [![Launched](https://img.shields.io/badge/Chrome--Charset-launched-brightgreen.svg)](https://github.com/jinliming2/Chrome-Charset)
 [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/jinliming2/Chrome-Charset/master/LICENSE)
