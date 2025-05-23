@@ -444,51 +444,57 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   (async () => {
     switch(message.type) {
       case 'setEncoding':
-        console.log(`[SW onMessage] Received 'setEncoding'. Tab ID: ${sender.tab ? sender.tab.id : 'N/A'}, Encoding: ${message.encoding}`);
-        if (sender.tab && sender.tab.id && message.encoding) {
-          console.log(`[SW onMessage] Calling await setEncoding for tab ${sender.tab.id}`);
+        console.log(`[SW onMessage] Received 'setEncoding'. Message Tab ID: ${message.tabId}, Sender Tab ID: ${sender.tab ? sender.tab.id : 'N/A'}, Encoding: ${message.encoding}`);
+        if (message.tabId && message.encoding) { // Check message.tabId
+          console.log(`[SW onMessage] Calling await setEncoding for tab ${message.tabId}`);
           try {
-            await setEncoding(sender.tab.id, message.encoding);
-            console.log(`[SW onMessage] await setEncoding for tab ${sender.tab.id} completed.`);
+            await setEncoding(message.tabId, message.encoding); // Use message.tabId
+            console.log(`[SW onMessage] await setEncoding for tab ${message.tabId} completed.`);
             sendResponse({status: "Encoding set"});
-            console.log(`[SW onMessage] sendResponse called for 'setEncoding' success for tab ${sender.tab.id}.`);
+            console.log(`[SW onMessage] sendResponse called for 'setEncoding' success for tab ${message.tabId}.`);
           } catch (e) {
-            console.error(`[SW onMessage] Error during setEncoding for tab ${sender.tab.id}:`, e);
+            console.error(`[SW onMessage] Error during setEncoding for tab ${message.tabId}:`, e);
             sendResponse({status: "Error during setEncoding", error: e.message});
-            console.log(`[SW onMessage] sendResponse called for 'setEncoding' error for tab ${sender.tab.id}.`);
+            console.log(`[SW onMessage] sendResponse called for 'setEncoding' error for tab ${message.tabId}.`);
           }
         } else {
-          console.warn(`[SW onMessage] 'setEncoding' missing tabId or encoding. Tab: ${sender.tab ? sender.tab.id : 'N/A'}, Encoding: ${message.encoding}`);
-          sendResponse({status: "Error: Missing tabId or encoding"});
-          console.log(`[SW onMessage] sendResponse called for 'setEncoding' missing info for tab ${sender.tab ? sender.tab.id : 'N/A'}.`);
+          console.warn(`[SW onMessage] 'setEncoding' missing message.tabId or message.encoding. Message TabID: ${message.tabId}, Encoding: ${message.encoding}`);
+          sendResponse({status: "Error: Missing message.tabId or encoding"});
+          console.log(`[SW onMessage] sendResponse called for 'setEncoding' missing info. Message TabID: ${message.tabId}.`);
         }
         break;
       case 'resetEncoding':
-        console.log(`[SW onMessage] Received 'resetEncoding'. Tab ID: ${sender.tab ? sender.tab.id : 'N/A'}`);
-        if (sender.tab && sender.tab.id) {
-          console.log(`[SW onMessage] Calling await resetEncoding for tab ${sender.tab.id}`);
+        console.log(`[SW onMessage] Received 'resetEncoding'. Message Tab ID: ${message.tabId}, Sender Tab ID: ${sender.tab ? sender.tab.id : 'N/A'}`);
+        if (message.tabId) { // Check message.tabId
+          console.log(`[SW onMessage] Calling await resetEncoding for tab ${message.tabId}`);
           try {
-            await resetEncoding(sender.tab.id);
-            console.log(`[SW onMessage] await resetEncoding for tab ${sender.tab.id} completed.`);
+            await resetEncoding(message.tabId); // Use message.tabId
+            console.log(`[SW onMessage] await resetEncoding for tab ${message.tabId} completed.`);
             sendResponse({status: "Encoding reset"});
-            console.log(`[SW onMessage] sendResponse called for 'resetEncoding' success for tab ${sender.tab.id}.`);
+            console.log(`[SW onMessage] sendResponse called for 'resetEncoding' success for tab ${message.tabId}.`);
           } catch (e) {
-            console.error(`[SW onMessage] Error during resetEncoding for tab ${sender.tab.id}:`, e);
+            console.error(`[SW onMessage] Error during resetEncoding for tab ${message.tabId}:`, e);
             sendResponse({status: "Error during resetEncoding", error: e.message});
-            console.log(`[SW onMessage] sendResponse called for 'resetEncoding' error for tab ${sender.tab.id}.`);
+            console.log(`[SW onMessage] sendResponse called for 'resetEncoding' error for tab ${message.tabId}.`);
           }
         } else {
-          console.warn(`[SW onMessage] 'resetEncoding' missing tabId. Tab: ${sender.tab ? sender.tab.id : 'N/A'}`);
-          sendResponse({status: "Error: Missing tabId"});
-          console.log(`[SW onMessage] sendResponse called for 'resetEncoding' missing info for tab ${sender.tab ? sender.tab.id : 'N/A'}.`);
+          console.warn(`[SW onMessage] 'resetEncoding' missing message.tabId. Message TabID: ${message.tabId}`);
+          sendResponse({status: "Error: Missing message.tabId"});
+          console.log(`[SW onMessage] sendResponse called for 'resetEncoding' missing info. Message TabID: ${message.tabId}.`);
         }
         break;
-      case 'getEncoding':
-        if (sender.tab && sender.tab.id) {
+      case 'getEncoding': // This case typically uses sender.tab.id if the message is from a content script or popup related to a tab.
+                          // If the message is from the popup for the *active tab*, sender.tab might not be set,
+                          // and message.tabId (if explicitly passed by popup) would be necessary.
+                          // The current popup.js sends { type: 'getEncoding', tabId: tabs[0].id }
+        if (message.tabId) {
+          const encoding = getEncoding(message.tabId);
+          sendResponse({encoding: encoding});
+        } else if (sender.tab && sender.tab.id) { // Fallback or alternative for other contexts
           const encoding = getEncoding(sender.tab.id);
           sendResponse({encoding: encoding});
         } else {
-          sendResponse({status: "Error: Missing tabId"});
+          sendResponse({status: "Error: Missing tabId in getEncoding message or sender context"});
         }
         break;
       case 'getEncodings':
