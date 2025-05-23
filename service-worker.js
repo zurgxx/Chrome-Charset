@@ -529,11 +529,5 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
     await createMenu();
   }
 
-  chrome.management.onSelfEnabled.addListener(async (info) => {
-    if (info.hostPermissions && info.hostPermissions.includes("file:///*")) {
-        console.log("Extension now has file URL access.");
-    }
-  });
-  
   console.log('Service worker initialized.');
 })();
