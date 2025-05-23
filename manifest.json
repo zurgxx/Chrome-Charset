@@ -21,7 +21,9 @@
     "default_popup": "popup.html"
   },
   "author": "Liming Jin, jinliming2@gmail.com",
-  "service_worker": "service-worker.js",
+  "background": {
+    "service_worker": "service-worker.js"
+  },
   "homepage_url": "https://github.com/jinliming2/Chrome-Charset",
   "incognito": "split",
   "minimum_chrome_version": "55.0.2872.0",
