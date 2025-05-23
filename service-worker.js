@@ -197,7 +197,7 @@ async function setEncoding(tabId, encoding) {
       addRules: [newRule]
     });
     tabRuleIds.set(tabId, newRuleId);
-    console.log(`[Service Worker] DNR rule ${newRuleId} set for tab ${tabId} with encoding ${encoding}. Old rule ${oldRuleId} removed.`);
+    // console.log(`[Service Worker] DNR rule ${newRuleId} set for tab ${tabId} with encoding ${encoding}. Old rule ${oldRuleId} removed.`);
   } catch (e) {
     console.error(`[Service Worker] Error setting DNR rule for tab ${tabId}:`, e);
   }
@@ -213,7 +213,7 @@ async function resetEncoding(tabId) {
         removeRuleIds: [ruleIdToRemove]
       });
       tabRuleIds.delete(tabId);
-      console.log(`[Service Worker] DNR rule ${ruleIdToRemove} removed for tab ${tabId}.`);
+      // console.log(`[Service Worker] DNR rule ${ruleIdToRemove} removed for tab ${tabId}.`);
     } catch (e) {
       console.error(`[Service Worker] Error removing DNR rule for tab ${tabId}:`, e);
     }
@@ -232,7 +232,7 @@ async function setupDefaultEncoding() {
     await chrome.declarativeNetRequest.updateSessionRules({
       removeRuleIds: [DEFAULT_ENCODING_RULE_ID]
     });
-    console.log(`[Service Worker] Old default DNR rule ${DEFAULT_ENCODING_RULE_ID} (if existed) removed.`);
+    // console.log(`[Service Worker] Old default DNR rule ${DEFAULT_ENCODING_RULE_ID} (if existed) removed.`);
   } catch (e) {
     console.error(`[Service Worker] Error removing default DNR rule ${DEFAULT_ENCODING_RULE_ID}:`, e);
   }
@@ -259,12 +259,12 @@ async function setupDefaultEncoding() {
       await chrome.declarativeNetRequest.updateSessionRules({
         addRules: [defaultRule]
       });
-      console.log(`[Service Worker] Default DNR rule ${DEFAULT_ENCODING_RULE_ID} set for encoding ${defaultEncoding}.`);
+      // console.log(`[Service Worker] Default DNR rule ${DEFAULT_ENCODING_RULE_ID} set for encoding ${defaultEncoding}.`);
     } catch (e) {
       console.error(`[Service Worker] Error setting default DNR rule ${DEFAULT_ENCODING_RULE_ID}:`, e);
     }
   } else {
-    console.log(`[Service Worker] Default encoding is not set. No default DNR rule added.`);
+    // console.log(`[Service Worker] Default encoding is not set. No default DNR rule added.`);
   }
 }
 
@@ -274,7 +274,7 @@ async function unsetDefaultEncoding() {
     await chrome.declarativeNetRequest.updateSessionRules({
       removeRuleIds: [DEFAULT_ENCODING_RULE_ID]
     });
-    console.log(`[Service Worker] Default DNR rule ${DEFAULT_ENCODING_RULE_ID} removed due to unsetDefaultEncoding.`);
+    // console.log(`[Service Worker] Default DNR rule ${DEFAULT_ENCODING_RULE_ID} removed due to unsetDefaultEncoding.`);
   } catch (e) {
     console.error(`[Service Worker] Error removing default DNR rule ${DEFAULT_ENCODING_RULE_ID} during unset:`, e);
   }
@@ -286,19 +286,13 @@ async function menuClicked(info, tab) {
     console.warn("menuClicked called without tab info or tab.id.");
     return;
   }
-  // It's good practice to ensure ENCODINGS are loaded if needed, though menu creation usually handles this.
-  // if (ENCODINGS.length === 0) { 
-  //   await initializeEncodings();
-  // }
 
-  // If the clicked menu item (not 'default') was already checked, do nothing.
-  // This prevents unnecessary reloads if the user clicks the active encoding.
   if (info.menuItemId !== 'default' && info.wasChecked) {
-    console.log(`Menu item ${info.menuItemId} for tab ${tab.id} was already checked. No action taken.`);
+    // console.log(`Menu item ${info.menuItemId} for tab ${tab.id} was already checked. No action taken.`);
     return;
   }
 
-  const actionTaken = info.menuItemId === 'default' ? 'reset' : 'set';
+  // const actionTaken = info.menuItemId === 'default' ? 'reset' : 'set';
 
   if (info.menuItemId === 'default') {
     await resetEncoding(tab.id);
@@ -306,16 +300,9 @@ async function menuClicked(info, tab) {
     await setEncoding(tab.id, info.menuItemId);
   }
 
-  // Unconditionally attempt to reload the tab if an action was taken (set/reset)
-  // and the item wasn't already checked (for non-default items).
-  // The 'default' case will always try to reload if it was clicked,
-  // as it might be clearing a tab-specific encoding.
   try {
-    console.log(`Reloading tab ${tab.id} due to ${actionTaken} action with encoding ${info.menuItemId}.`);
+    // console.log(`Reloading tab ${tab.id} due to ${actionTaken} action with encoding ${info.menuItemId}.`);
     await chrome.tabs.reload(tab.id, { bypassCache: true });
-    // The updateMenu call is removed here; rely on tabs.onUpdated listener
-    // or if immediate visual feedback is paramount, it could be added back,
-    // but it's better to ensure it doesn't interfere with the reload.
   } catch (e) {
     console.error(`Error reloading tab ${tab.id} in menuClicked:`, e);
   }
@@ -345,7 +332,7 @@ async function updateMenu(tabId) {
   } catch (e) {
     const { config_menu } = await chrome.storage.local.get(['config_menu']);
     if (config_menu === 'true') {
-        console.log("Attempting to recreate menu due to update error for item:", effectiveEncoding, e);
+        // console.log("Attempting to recreate menu due to update error for item:", effectiveEncoding, e);
         await createMenuInternal(true); // Force recreate
     }
   }
@@ -444,53 +431,36 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   (async () => {
     switch(message.type) {
       case 'setEncoding':
-        console.log(`[SW onMessage] Received 'setEncoding'. Message Tab ID: ${message.tabId}, Sender Tab ID: ${sender.tab ? sender.tab.id : 'N/A'}, Encoding: ${message.encoding}`);
-        if (message.tabId && message.encoding) { // Check message.tabId
-          console.log(`[SW onMessage] Calling await setEncoding for tab ${message.tabId}`);
+        if (message.tabId && message.encoding) {
           try {
-            await setEncoding(message.tabId, message.encoding); // Use message.tabId
-            console.log(`[SW onMessage] await setEncoding for tab ${message.tabId} completed.`);
+            await setEncoding(message.tabId, message.encoding);
             sendResponse({status: "Encoding set"});
-            console.log(`[SW onMessage] sendResponse called for 'setEncoding' success for tab ${message.tabId}.`);
           } catch (e) {
             console.error(`[SW onMessage] Error during setEncoding for tab ${message.tabId}:`, e);
             sendResponse({status: "Error during setEncoding", error: e.message});
-            console.log(`[SW onMessage] sendResponse called for 'setEncoding' error for tab ${message.tabId}.`);
           }
         } else {
-          console.warn(`[SW onMessage] 'setEncoding' missing message.tabId or message.encoding. Message TabID: ${message.tabId}, Encoding: ${message.encoding}`);
           sendResponse({status: "Error: Missing message.tabId or encoding"});
-          console.log(`[SW onMessage] sendResponse called for 'setEncoding' missing info. Message TabID: ${message.tabId}.`);
         }
         break;
       case 'resetEncoding':
-        console.log(`[SW onMessage] Received 'resetEncoding'. Message Tab ID: ${message.tabId}, Sender Tab ID: ${sender.tab ? sender.tab.id : 'N/A'}`);
-        if (message.tabId) { // Check message.tabId
-          console.log(`[SW onMessage] Calling await resetEncoding for tab ${message.tabId}`);
+        if (message.tabId) {
           try {
-            await resetEncoding(message.tabId); // Use message.tabId
-            console.log(`[SW onMessage] await resetEncoding for tab ${message.tabId} completed.`);
+            await resetEncoding(message.tabId);
             sendResponse({status: "Encoding reset"});
-            console.log(`[SW onMessage] sendResponse called for 'resetEncoding' success for tab ${message.tabId}.`);
           } catch (e) {
             console.error(`[SW onMessage] Error during resetEncoding for tab ${message.tabId}:`, e);
             sendResponse({status: "Error during resetEncoding", error: e.message});
-            console.log(`[SW onMessage] sendResponse called for 'resetEncoding' error for tab ${message.tabId}.`);
           }
         } else {
-          console.warn(`[SW onMessage] 'resetEncoding' missing message.tabId. Message TabID: ${message.tabId}`);
           sendResponse({status: "Error: Missing message.tabId"});
-          console.log(`[SW onMessage] sendResponse called for 'resetEncoding' missing info. Message TabID: ${message.tabId}.`);
         }
         break;
-      case 'getEncoding': // This case typically uses sender.tab.id if the message is from a content script or popup related to a tab.
-                          // If the message is from the popup for the *active tab*, sender.tab might not be set,
-                          // and message.tabId (if explicitly passed by popup) would be necessary.
-                          // The current popup.js sends { type: 'getEncoding', tabId: tabs[0].id }
+      case 'getEncoding':
         if (message.tabId) {
           const encoding = getEncoding(message.tabId);
           sendResponse({encoding: encoding});
-        } else if (sender.tab && sender.tab.id) { // Fallback or alternative for other contexts
+        } else if (sender.tab && sender.tab.id) {
           const encoding = getEncoding(sender.tab.id);
           sendResponse({encoding: encoding});
         } else {
@@ -501,7 +471,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (ENCODINGS && ENCODINGS.length > 0) {
           sendResponse(ENCODINGS);
         } else {
-          console.warn("getEncodings message received, but ENCODINGS not ready. Initializing...");
+          // console.warn("getEncodings message received, but ENCODINGS not ready. Initializing...");
           await initializeEncodings();
           sendResponse(ENCODINGS);
         }
@@ -535,7 +505,7 @@ chrome.contextMenus.onClicked.addListener(menuClicked);
 
 chrome.tabs.onRemoved.addListener(async (tabId) => {
     await resetEncoding(tabId);
-    console.log(`[Service Worker] Cleaned up encoding state and DNR rule for removed tab ${tabId}`);
+    // console.log(`[Service Worker] Cleaned up encoding state and DNR rule for removed tab ${tabId}`);
 });
 
 
@@ -546,7 +516,7 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
     const ruleIdsToRemove = currentRules.map(rule => rule.id);
     if (ruleIdsToRemove.length > 0) {
       await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: ruleIdsToRemove });
-      console.log('[Service Worker] Cleared existing session DNR rules on startup/reload.');
+      // console.log('[Service Worker] Cleared existing session DNR rules on startup/reload.');
     }
   } catch (e) {
     console.error('[Service Worker] Error clearing existing session DNR rules:', e);
