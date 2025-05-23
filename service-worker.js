@@ -282,17 +282,23 @@ async function unsetDefaultEncoding() {
 
 // --- Menu Functions ---
 async function menuClicked(info, tab) {
-  if (!tab) {
-    console.warn("menuClicked called without tab info.");
+  if (!tab || !tab.id) {
+    console.warn("menuClicked called without tab info or tab.id.");
     return;
   }
-  if (ENCODINGS.length === 0) {
-    await initializeEncodings();
+  // It's good practice to ensure ENCODINGS are loaded if needed, though menu creation usually handles this.
+  // if (ENCODINGS.length === 0) { 
+  //   await initializeEncodings();
+  // }
+
+  // If the clicked menu item (not 'default') was already checked, do nothing.
+  // This prevents unnecessary reloads if the user clicks the active encoding.
+  if (info.menuItemId !== 'default' && info.wasChecked) {
+    console.log(`Menu item ${info.menuItemId} for tab ${tab.id} was already checked. No action taken.`);
+    return;
   }
 
-  if (info.wasChecked && info.menuItemId !== 'default') {
-    return;
-  }
+  const actionTaken = info.menuItemId === 'default' ? 'reset' : 'set';
 
   if (info.menuItemId === 'default') {
     await resetEncoding(tab.id);
@@ -300,15 +306,18 @@ async function menuClicked(info, tab) {
     await setEncoding(tab.id, info.menuItemId);
   }
 
+  // Unconditionally attempt to reload the tab if an action was taken (set/reset)
+  // and the item wasn't already checked (for non-default items).
+  // The 'default' case will always try to reload if it was clicked,
+  // as it might be clearing a tab-specific encoding.
   try {
-    const currentEffectiveEncoding = getEncoding(tab.id);
-    if (info.menuItemId !== currentEffectiveEncoding || (info.menuItemId === 'default' && encodingList.has(tab.id)) ) {
-        await chrome.tabs.reload(tab.id, { bypassCache: true });
-    } else {
-        updateMenu(tab.id);
-    }
+    console.log(`Reloading tab ${tab.id} due to ${actionTaken} action with encoding ${info.menuItemId}.`);
+    await chrome.tabs.reload(tab.id, { bypassCache: true });
+    // The updateMenu call is removed here; rely on tabs.onUpdated listener
+    // or if immediate visual feedback is paramount, it could be added back,
+    // but it's better to ensure it doesn't interfere with the reload.
   } catch (e) {
-    console.error("Error reloading tab or updating menu:", e);
+    console.error(`Error reloading tab ${tab.id} in menuClicked:`, e);
   }
 }
 
